@@ -1,0 +1,40 @@
+{% extends "notes/base.html" %}
+
+{% block title %}Profile - Notepad{% endblock %}
+
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-person me-2"></i>Profile</h3>
+
+<div class="card border-0 shadow-sm" style="max-width: 500px;">
+    <div class="card-body p-4">
+        <div class="text-center mb-4">
+            <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width:80px;height:80px;font-size:2rem">
+                {{ user.username|first|upper }}
+            </div>
+        </div>
+
+        <table class="table">
+            <tr>
+                <th>Username</th>
+                <td>{{ user.username }}</td>
+            </tr>
+            <tr>
+                <th>Email</th>
+                <td>{{ user.email|default:"Not set" }}</td>
+            </tr>
+            <tr>
+                <th>Joined</th>
+                <td>{{ user.date_joined|date:"M d, Y" }}</td>
+            </tr>
+            <tr>
+                <th>Notes</th>
+                <td>{{ notes_count }}</td>
+            </tr>
+            <tr>
+                <th>Categories</th>
+                <td>{{ categories_count }}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+{% endblock %}

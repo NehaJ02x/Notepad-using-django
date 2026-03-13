@@ -1,0 +1,91 @@
+{% extends "notes/base.html" %}
+
+{% block title %}{{ note.title }} - Notepad{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm" style="background-color: {{ note.color }};">
+    <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+                <h2 class="mb-1">
+                    {% if note.is_pinned %}<i class="bi bi-pin-fill text-warning me-2"></i>{% endif %}
+                    {{ note.title }}
+                </h2>
+                <small class="text-muted">
+                    Created {{ note.created_at|date:"M d, Y H:i" }} &middot;
+                    Updated {{ note.updated_at|date:"M d, Y H:i" }}
+                </small>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'note_edit' note.pk %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+                <form method="post" action="{% url 'note_pin' note.pk %}">
+                    {% csrf_token %}
+                    <button class="btn btn-outline-warning btn-sm">
+                        <i class="bi bi-pin{% if note.is_pinned %}-fill{% endif %} me-1"></i>
+                        {% if note.is_pinned %}Unpin{% else %}Pin{% endif %}
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {% if note.category %}
+        <span class="badge bg-secondary mb-2">{{ note.category.name }}</span>
+        {% endif %}
+        {% for tag in note.tags.all %}
+        <span class="badge bg-info mb-2">{{ tag.name }}</span>
+        {% endfor %}
+
+        {% if note.reminder %}
+        <div class="mb-3">
+            <i class="bi bi-bell text-warning me-1"></i>
+            <small>Reminder: {{ note.reminder|date:"M d, Y H:i" }}</small>
+        </div>
+        {% endif %}
+
+        <hr>
+        <div class="note-content">{{ note.body|safe|linebreaks }}</div>
+        <hr>
+
+        <div class="d-flex flex-wrap gap-2">
+            <!-- Export -->
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-download me-1"></i>Export
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="{% url 'note_export_txt' note.pk %}"><i class="bi bi-file-text me-2"></i>Text (.txt)</a></li>
+                    <li><a class="dropdown-item" href="{% url 'note_export_md' note.pk %}"><i class="bi bi-markdown me-2"></i>Markdown (.md)</a></li>
+                </ul>
+            </div>
+
+            <!-- Delete -->
+            <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                <i class="bi bi-trash me-1"></i>Delete
+            </button>
+
+            <a href="{% url 'note_list' %}" class="btn btn-outline-secondary btn-sm ms-auto">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <i class="bi bi-exclamation-triangle text-warning" style="font-size:2rem"></i>
+                <p class="mt-2">Move "<strong>{{ note.title }}</strong>" to trash?</p>
+                <form method="post" action="{% url 'note_delete' note.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger me-2">Move to Trash</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

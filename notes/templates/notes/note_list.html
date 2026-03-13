@@ -1,0 +1,100 @@
+{% extends "notes/base.html" %}
+
+{% block title %}My Notes - Notepad{% endblock %}
+
+{% block content %}
+<!-- Search & Filter Bar -->
+<div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+    <form method="get" class="d-flex flex-grow-1" style="max-width:400px">
+        <div class="input-group">
+            <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+            <input type="text" name="q" class="form-control" placeholder="Search notes..." value="{{ query }}">
+        </div>
+    </form>
+
+    <div class="dropdown">
+        <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{% url 'note_list' %}">All Notes</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">Categories</h6></li>
+            {% for cat in categories %}
+            <li><a class="dropdown-item" href="{% url 'note_list' %}?category={{ cat.id }}">{{ cat.name }}</a></li>
+            {% empty %}
+            <li><span class="dropdown-item text-muted">No categories</span></li>
+            {% endfor %}
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">Tags</h6></li>
+            {% for tag in tags %}
+            <li><a class="dropdown-item" href="{% url 'note_list' %}?tag={{ tag.id }}">{{ tag.name }}</a></li>
+            {% empty %}
+            <li><span class="dropdown-item text-muted">No tags</span></li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Notes Grid -->
+<div class="notes-grid">
+    {% for note in notes %}
+    <div class="note-card" style="background-color: {{ note.color }};" onclick="window.location='{% url 'note_detail' note.pk %}'">
+        {% if note.is_pinned %}
+        <span class="pin-badge"><i class="bi bi-pin-fill"></i></span>
+        {% endif %}
+
+        <div class="note-title">{{ note.title }}</div>
+        <div class="note-body">{{ note.body|truncatewords:30|striptags }}</div>
+
+        <div class="note-meta d-flex justify-content-between align-items-center mt-2">
+            <span>{{ note.updated_at|date:"M d, Y" }}</span>
+            {% if note.category %}
+            <span class="badge bg-secondary">{{ note.category.name }}</span>
+            {% endif %}
+        </div>
+
+        {% if note.reminder %}
+        <div class="note-meta"><i class="bi bi-bell me-1"></i>{{ note.reminder|date:"M d, Y H:i" }}</div>
+        {% endif %}
+
+        <div class="note-actions d-flex gap-1 mt-2" onclick="event.stopPropagation()">
+            <form method="post" action="{% url 'note_pin' note.pk %}">
+                {% csrf_token %}
+                <button class="btn btn-sm btn-outline-warning" title="{% if note.is_pinned %}Unpin{% else %}Pin{% endif %}">
+                    <i class="bi bi-pin{% if note.is_pinned %}-fill{% endif %}"></i>
+                </button>
+            </form>
+            <a href="{% url 'note_edit' note.pk %}" class="btn btn-sm btn-outline-primary" title="Edit">
+                <i class="bi bi-pencil"></i>
+            </a>
+            <button class="btn btn-sm btn-outline-danger" title="Delete" data-bs-toggle="modal" data-bs-target="#deleteModal{{ note.pk }}">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal{{ note.pk }}" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-body text-center p-4">
+                    <i class="bi bi-exclamation-triangle text-warning" style="font-size:2rem"></i>
+                    <p class="mt-2">Move "<strong>{{ note.title }}</strong>" to trash?</p>
+                    <form method="post" action="{% url 'note_delete' note.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger me-2">Move to Trash</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center text-muted py-5" style="grid-column: 1/-1;">
+        <i class="bi bi-sticky" style="font-size:3rem"></i>
+        <p class="mt-2">No notes yet. Click the <strong>+</strong> button to create one!</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

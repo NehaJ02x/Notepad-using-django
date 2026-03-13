@@ -1,0 +1,197 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Notepad{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root { --sidebar-width: 260px; }
+
+        body { min-height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            background: var(--bs-body-bg);
+            border-right: 1px solid var(--bs-border-color);
+            padding: 1rem;
+            overflow-y: auto;
+            z-index: 1000;
+            transition: transform 0.3s;
+        }
+        .sidebar .nav-link { color: var(--bs-body-color); border-radius: 8px; margin-bottom: 2px; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: var(--bs-primary-bg-subtle); color: var(--bs-primary); }
+        .sidebar .nav-link i { width: 24px; }
+
+        .main-content { margin-left: var(--sidebar-width); padding: 2rem; }
+
+        /* Notes grid */
+        .notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+
+        .note-card {
+            border-radius: 12px;
+            padding: 1.2rem;
+            border: 1px solid var(--bs-border-color);
+            transition: box-shadow 0.2s, transform 0.2s;
+            position: relative;
+            cursor: pointer;
+        }
+        .note-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); transform: translateY(-2px); }
+        .note-card .pin-badge {
+            position: absolute; top: 8px; right: 8px;
+            color: var(--bs-warning);
+        }
+        .note-card .note-title { font-weight: 600; margin-bottom: 0.5rem; }
+        .note-card .note-body { font-size: 0.9rem; color: var(--bs-secondary-color); max-height: 120px; overflow: hidden; }
+        .note-card .note-meta { font-size: 0.75rem; color: var(--bs-tertiary-color); margin-top: 0.5rem; }
+        .note-card .note-actions { opacity: 0; transition: opacity 0.2s; }
+        .note-card:hover .note-actions { opacity: 1; }
+
+        /* Floating add button */
+        .fab {
+            position: fixed; bottom: 2rem; right: 2rem;
+            width: 56px; height: 56px;
+            border-radius: 50%; border: none;
+            background: var(--bs-primary); color: #fff;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 999;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s;
+        }
+        .fab:hover { transform: scale(1.1); color: #fff; }
+
+        /* Dark mode tweaks */
+        [data-bs-theme="dark"] .note-card { border-color: var(--bs-border-color); }
+        [data-bs-theme="dark"] .sidebar { background: var(--bs-body-bg); }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.show { transform: translateX(0); }
+            .main-content { margin-left: 0; }
+        }
+
+        /* Color dot picker */
+        .color-dot {
+            display: inline-block; width: 24px; height: 24px;
+            border-radius: 50%; border: 2px solid transparent;
+            cursor: pointer; margin: 2px;
+        }
+        .color-dot.active, .color-dot:hover { border-color: var(--bs-primary); }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <h4 class="mb-4"><i class="bi bi-journal-text me-2"></i>Notepad</h4>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'note_list' and not selected_category and not selected_tag %}active{% endif %}" href="{% url 'note_list' %}">
+                    <i class="bi bi-sticky me-2"></i>All Notes
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'trash_list' %}active{% endif %}" href="{% url 'trash_list' %}">
+                    <i class="bi bi-trash me-2"></i>Trash
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'category_manage' %}active{% endif %}" href="{% url 'category_manage' %}">
+                    <i class="bi bi-folder me-2"></i>Categories
+                </a>
+            </li>
+        </ul>
+
+        {% if categories %}
+        <hr>
+        <small class="text-muted text-uppercase fw-bold">Categories</small>
+        <ul class="nav flex-column mt-2">
+            {% for cat in categories %}
+            <li class="nav-item">
+                <a class="nav-link {% if selected_category == cat.id|stringformat:'d' %}active{% endif %}" href="{% url 'note_list' %}?category={{ cat.id }}">
+                    <i class="bi bi-tag me-2"></i>{{ cat.name }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <hr>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'profile' %}">
+                    <i class="bi bi-person me-2"></i>Profile
+                </a>
+            </li>
+            <li class="nav-item">
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="nav-link border-0 bg-transparent w-100 text-start">
+                        <i class="bi bi-box-arrow-left me-2"></i>Logout
+                    </button>
+                </form>
+            </li>
+        </ul>
+
+        <hr>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="darkModeToggle">
+            <label class="form-check-label" for="darkModeToggle">
+                <i class="bi bi-moon-stars me-1"></i>Dark Mode
+            </label>
+        </div>
+    </nav>
+
+    <!-- Mobile toggle -->
+    <button class="btn btn-outline-secondary d-md-none position-fixed" style="top:10px;left:10px;z-index:1001" onclick="document.getElementById('sidebar').classList.toggle('show')">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Floating Add Button -->
+    {% if request.resolver_match.url_name == 'note_list' %}
+    <a href="{% url 'note_create' %}" class="fab" title="New Note">
+        <i class="bi bi-plus-lg"></i>
+    </a>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Dark mode toggle
+        const toggle = document.getElementById('darkModeToggle');
+        const html = document.documentElement;
+
+        if (localStorage.getItem('theme') === 'dark') {
+            html.setAttribute('data-bs-theme', 'dark');
+            toggle.checked = true;
+        }
+
+        toggle.addEventListener('change', () => {
+            const theme = toggle.checked ? 'dark' : 'light';
+            html.setAttribute('data-bs-theme', theme);
+            localStorage.setItem('theme', theme);
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

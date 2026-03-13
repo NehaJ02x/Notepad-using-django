@@ -1,0 +1,129 @@
+{% extends "notes/base.html" %}
+
+{% block title %}{% if note %}Edit Note{% else %}New Note{% endif %} - Notepad{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+        <h3 class="mb-4">{% if note %}Edit Note{% else %}New Note{% endif %}</h3>
+
+        <form method="post" id="noteForm">
+            {% csrf_token %}
+
+            <div class="mb-3">
+                <label for="{{ form.title.id_for_label }}" class="form-label">Title</label>
+                <input type="text" name="title" id="{{ form.title.id_for_label }}"
+                       class="form-control form-control-lg {% if form.title.errors %}is-invalid{% endif %}"
+                       value="{{ form.title.value|default:'' }}" placeholder="Note title" required>
+                {% for error in form.title.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            </div>
+
+            <div class="mb-3">
+                <label for="note-body" class="form-label">Content</label>
+                <textarea name="body" id="note-body" class="form-control" rows="12">{{ form.body.value|default:'' }}</textarea>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <label for="{{ form.category.id_for_label }}" class="form-label">Category</label>
+                    <select name="category" id="{{ form.category.id_for_label }}" class="form-select">
+                        <option value="">No category</option>
+                        {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if form.category.value|stringformat:'d' == cat.id|stringformat:'d' %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="id_tags_input" class="form-label">Tags</label>
+                    <input type="text" name="tags_input" id="id_tags_input" class="form-control"
+                           value="{{ form.tags_input.value|default:'' }}" placeholder="work, personal, study">
+                    <small class="form-text text-muted">Comma-separated</small>
+                </div>
+                <div class="col-md-4">
+                    <label for="{{ form.reminder.id_for_label }}" class="form-label">Reminder</label>
+                    <input type="datetime-local" name="reminder" id="{{ form.reminder.id_for_label }}"
+                           class="form-control" value="{{ form.reminder.value|default:'' }}">
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Color</label>
+                    <div>
+                        {% for value, label in form.color.field.choices %}
+                        <label class="color-dot {% if form.color.value == value or form.color.value == None and value == '#ffffff' %}active{% endif %}"
+                               style="background-color: {{ value }};"
+                               title="{{ label }}">
+                            <input type="radio" name="color" value="{{ value }}"
+                                   {% if form.color.value == value or form.color.value == None and value == '#ffffff' %}checked{% endif %}
+                                   style="display:none"
+                                   onchange="this.closest('.mb-3').querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active')); this.parentElement.classList.add('active');">
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <div class="form-check">
+                        <input type="checkbox" name="is_pinned" id="{{ form.is_pinned.id_for_label }}"
+                               class="form-check-input" {% if form.is_pinned.value %}checked{% endif %}>
+                        <label class="form-check-label" for="{{ form.is_pinned.id_for_label }}">
+                            <i class="bi bi-pin me-1"></i>Pin this note
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>{% if note %}Update{% else %}Create{% endif %}
+                </button>
+                <a href="{% url 'note_list' %}" class="btn btn-outline-secondary">Cancel</a>
+                {% if note %}
+                <span class="text-muted ms-auto align-self-center" id="autosave-status"></span>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    {% if note %}
+    // Auto-save
+    let autoSaveTimer;
+    const statusEl = document.getElementById('autosave-status');
+
+    function autoSave() {
+        const title = document.querySelector('[name="title"]').value;
+        const body = document.querySelector('[name="body"]').value;
+
+        fetch('{% url "note_autosave" note.pk %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({ title, body }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            statusEl.textContent = 'Saved at ' + new Date().toLocaleTimeString();
+        })
+        .catch(() => {
+            statusEl.textContent = 'Auto-save failed';
+        });
+    }
+
+    document.querySelector('[name="title"]').addEventListener('input', () => {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(autoSave, 2000);
+    });
+
+    document.querySelector('[name="body"]').addEventListener('input', () => {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(autoSave, 2000);
+    });
+    {% endif %}
+</script>
+{% endblock %}
